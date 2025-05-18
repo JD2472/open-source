@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Usage: ./preprocess <input_file>
+# Example: ./preprocess bgg_dataset.txt > cleaned_output.tsv
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <input_file>"
+    exit 1
+fi
+
+input="$1"
+
+if [ ! -f "$input" ]; then
+    echo "File not found: $input"
+    exit 1
+fi
+
+# Get the max ID number from existing entries
+max_id=$(awk -F';' 'NR>1 && $1 ~ /^[0-9]+$/ && $1+0 > max { max = $1+0 } END { print max }' "$input")
+new_id=$((max_id + 1))
+
+awk -F';' -v OFS='\t' -v new_id="$new_id" '
+BEGIN {
+    # Regular expression to match only ASCII characters
+    non_ascii = "[^\t\n\x20-\x7E]"
+}
+NR == 1 {
+    # Header
+    for (i = 1; i <= NF; i++) {
+        gsub(/\r/, "", $i)
+        gsub(non_ascii, "", $i)
+    }
+    print $0
+    next
+}
+{
+    # Replace commas with dots in float numbers
+    for (i = 1; i <= NF; i++) {
+        gsub(/\r/, "", $i)
+        gsub(/,/, ".", $i)
+        gsub(non_ascii, "", $i)
+    }
+
+    # If ID is missing, assign a new one
+    if ($1 == "") {
+        $1 = new_id++
+    }
+
+    print $0
+}
+' "$input"
