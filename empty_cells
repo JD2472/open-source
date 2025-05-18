@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Ensure correct number of arguments
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <filename> <separator>"
+  exit 1
+fi
+
+filename="$1"
+separator="$2"
+
+# Clean header line (remove quotes) and split into columns
+header=$(head -n 1 "$filename" | tr -d '"' | tr -d '\r')
+IFS="$separator" read -ra columns <<< "$header"
+num_cols=${#columns[@]}
+
+# Loop over columns and count empty cells in each
+for ((i=1; i<=num_cols; i++)); do
+  col_name="${columns[$((i-1))]}"
+  count=$(tail -n +2 "$filename" | awk -F"$separator" -v col="$i" '
+    NF >= col && ($col == "" || $col ~ /^[[:space:]]+$/) { count++ }
+    END { print count+0 }
+  ')
+  echo "$col_name: $count"
+done
